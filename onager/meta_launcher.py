@@ -104,7 +104,7 @@ def meta_launch(args):
 
     if args.tag is not None:
         tag_list = [
-            args.jobname + sep + '{}'.format(i) + suffix
+            args.jobname + suffix
             for (i, suffix) in enumerate(cmd_suffix_list, start_jobid)
         ]
         cmd_prefix_list = [
