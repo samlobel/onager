@@ -11,6 +11,7 @@ class SlurmBackend(Backend):
         self.name = 'slurm'
         self.task_id_var = r'$SLURM_ARRAY_TASK_ID'
 
+
     def _get_body(self, tasks_file, args):
         """
         A bit complicated. It may have a bunch of concurrent processes.
@@ -21,17 +22,24 @@ class SlurmBackend(Backend):
         task_id_var = self.task_id_var
 
         all_tasks = []
+        pids = []
         for i in range(1, args.tasks_per_job + 1):
-            task_num_str_defn = "\ntask_array_num=$(( {}*{} - {} + {} - 1))".format(str(args.tasks_per_job), task_id_var, str(args.tasks_per_job), i)
+            task_num_str_defn = "task_array_num=$(( {}*{} - {} + {} - 1))".format(str(args.tasks_per_job), task_id_var, str(args.tasks_per_job), i)
             # task_num_str_defn = "\ntask_array_num=$(( {}*{} + {} - {} - 1))".format(str(args.tasks_per_job), task_id_var, i, str(args.tasks_per_job))
             real_task_id_str = "task_num=${task_array[$task_array_num]}"
             task = self.body.strip().format(tasks_file, "$task_num")
             # task = self.body.strip().format(tasks_file, real_task_id_str)
+            get_pid_str = "pid{}=$!\n".format(str(i))
             single_task_str = " \n".join([task_num_str_defn, real_task_id_str, task])
+            single_task_str = single_task_str + " & \n" + get_pid_str
+            # single_task_str = "( " + single_task_str + " ) & \n" + get_pid_str
+            pids.append("$pid{}".format(str(i)))
+            # single_task_str = " \n".join([task_num_str_defn, real_task_id_str, task])
             all_tasks.append(single_task_str)
 
-        full_task_str = " & \n".join(all_tasks)
-        full_task_str = "\n{} \n{} \n".format(bash_task_array_defn, full_task_str)
+        wait_str = "wait " + " ".join(pids)
+        full_task_str = " \n".join(all_tasks)
+        full_task_str = "\n{} \n{} \n{} \n".format(bash_task_array_defn, full_task_str, wait_str)
         return full_task_str
 
     def get_cancel_cmds(self, cancellations):
